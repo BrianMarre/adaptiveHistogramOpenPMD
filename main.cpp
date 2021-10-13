@@ -15,13 +15,13 @@ int main(){
         openPMD::Access::CREATE);
 
     /// open iteration
-    auto iteration = series.iterations[42];
+    auto iteration = series.iterations[0];
 
     constexpr int xExtent = 2;
     constexpr int yExtent = 3;
     constexpr int maxNumBins = 5;
 
-    openPMD::Extent extent = {xExtent * maxNumBins, yExtent};
+    openPMD::Extent extent = {xExtent, yExtent * maxNumBins};
 
     typedef float T_Value;
     typedef float T_Argument;
@@ -46,7 +46,7 @@ int main(){
     histogramMesh.setAttribute("maxNumBins", maxNumBins);
 
     // create 1 record component each corresponding to one single entry in histogram
-    auto entryLeftBoundary = histogramMesh["weightBins"];
+    auto entryLeftBoundary = histogramMesh["leftBoundaryBins"];
     auto entryWidth = histogramMesh["widthBins"];
     auto entryWeight = histogramMesh["weightBins"];
 
@@ -54,7 +54,7 @@ int main(){
     openPMD::Datatype dataTypeValue =
         openPMD::determineDatatype(openPMD::shareRaw(weightBins_data));
     openPMD::Datatype dataTypeArgument =
-        openPMD::determineDatatype(widthBins_data);
+        openPMD::determineDatatype(openPMD::shareRaw(widthBins_data));
 
     openPMD::Dataset dataSetValue = openPMD::Dataset(dataTypeValue, extent);
     openPMD::Dataset dataSetArgument =
@@ -62,10 +62,18 @@ int main(){
 
     /// set what records actually store(what record components actually are)
     entryWeight.resetDataset(dataSetArgument);
-    entryWeight.resetDataset(dataSetArgument);
-    entryWeight.resetDataset(dataSetValue);
+    entryWidth.resetDataset(dataSetArgument);
+    entryLeftBoundary.resetDataset(dataSetValue);
 
     /// actual data is passed
+    entryLeftBoundary.storeChunk(
+        openPMD::shareRaw(leftBoundaryBins_data), // returns raw pointer to data
+        {0, 0},                                   // offset
+        extent); // extent, artificially inflated
+    entryWidth.storeChunk(
+        openPMD::shareRaw(widthBins_data), // returns raw pointer to data
+        {0, 0},                            // offset
+        extent);                           // extent, artificially inflated
     entryWeight.storeChunk(
         openPMD::shareRaw(weightBins_data), // returns raw pointer to data
         {0, 0},                             // offset

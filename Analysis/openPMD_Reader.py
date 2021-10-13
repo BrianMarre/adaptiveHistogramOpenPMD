@@ -17,12 +17,20 @@ for mesh in step.meshes:
     for record in step.meshes[mesh]:
         print("\t {0}".format(record))
 
-print(series.get_attribute("maxNumBins"))
+adaptiveHistogram = step.meshes["adaptiveHistogram"]
+leftBoundaryBins = adaptiveHistogram["leftBoundaryBins"]
+widthBins = adaptiveHistogram["widthBins"]
+weightBins = adaptiveHistogram["weightBins"]
 
-adaptiveHistogram = step.meshes["adaptiveHistogram"][io.Mesh_Record_Component.SCALAR]
-x_data = adaptiveHistogram.load_chunk()
+
+print(adaptiveHistogram.get_attribute("maxNumBins"))
+
+leftBoundaryBins_data = leftBoundaryBins.load_chunk()
+widthBins_data = widthBins.load_chunk()
+weightBins_data = weightBins.load_chunk()
+
 series.flush()
 
-print(x_data)
+print(leftBoundaryBins_data)
 
 del series
