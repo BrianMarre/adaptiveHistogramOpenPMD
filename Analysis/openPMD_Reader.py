@@ -17,8 +17,12 @@ for mesh in step.meshes:
     for record in step.meshes[mesh]:
         print("\t {0}".format(record))
 
+print(series.get_attribute("maxNumBins"))
+
 adaptiveHistogram = step.meshes["adaptiveHistogram"][io.Mesh_Record_Component.SCALAR]
 x_data = adaptiveHistogram.load_chunk()
 series.flush()
 
 print(x_data)
+
+del series

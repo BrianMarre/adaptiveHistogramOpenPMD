@@ -21,39 +21,55 @@ int main(){
     constexpr int yExtent = 3;
     constexpr int maxNumBins = 5;
 
-    openPMD::Extent extent = {xExtent, yExtent, maxNumBins};
+    openPMD::Extent extent = {xExtent * maxNumBins, yExtent};
 
-    int numBins = 3;
+    typedef float T_Value;
+    typedef float T_Argument;
 
     /// create test data
     // set up is xExtent x yExtent grid points and for each grid point a histogram with maxNumBins bins
-    std::vector<float> x_data(
-        xExtent * yExtent * maxNumBins);
+    std::vector<T_Value> weightBins_data(xExtent * yExtent * maxNumBins);
+    std::vector<T_Argument> leftBoundaryBins_data(xExtent * yExtent *
+                                                  maxNumBins);
+    std::vector<T_Argument> widthBins_data(xExtent * yExtent * maxNumBins);
+
+    std::vector<int> numBins(xExtent * yExtent);
 
     // fill x_data with ascending index
-    std::iota(
-        x_data.begin(),
-        x_data.end(),
-        1.);
+    std::iota(weightBins_data.begin(), weightBins_data.end(), 1.);
+    std::iota(widthBins_data.begin(), widthBins_data.end(), 1.);
+    std::iota(leftBoundaryBins_data.begin(), leftBoundaryBins_data.end(), 1.);
 
     // create a new record for mesh
     auto histogramMesh = iteration.meshes["adaptiveHistogram"];
 
+    histogramMesh.setAttribute("maxNumBins", maxNumBins);
+
     // create 1 record component each corresponding to one single entry in histogram
-    auto entry = histogramMesh[openPMD::MeshRecordComponent::SCALAR];
+    auto entryLeftBoundary = histogramMesh["weightBins"];
+    auto entryWidth = histogramMesh["widthBins"];
+    auto entryWeight = histogramMesh["weightBins"];
 
     ///create new dataset, description of how data is to be stored
-    openPMD::Datatype dataType = openPMD::determineDatatype(openPMD::shareRaw(x_data));
-    openPMD::Dataset dataSet = openPMD::Dataset(dataType, extent);
+    openPMD::Datatype dataTypeValue =
+        openPMD::determineDatatype(openPMD::shareRaw(weightBins_data));
+    openPMD::Datatype dataTypeArgument =
+        openPMD::determineDatatype(widthBins_data);
+
+    openPMD::Dataset dataSetValue = openPMD::Dataset(dataTypeValue, extent);
+    openPMD::Dataset dataSetArgument =
+        openPMD::Dataset(dataTypeArgument, extent);
 
     /// set what records actually store(what record components actually are)
-    entry.resetDataset(dataSet);
+    entryWeight.resetDataset(dataSetArgument);
+    entryWeight.resetDataset(dataSetArgument);
+    entryWeight.resetDataset(dataSetValue);
 
     /// actual data is passed
-    entry.storeChunk(
-        openPMD::shareRaw(x_data), // returns raw pointer to data
-        {0, 0, 0}, // offset
-        extent); // extent, artificially inflated
+    entryWeight.storeChunk(
+        openPMD::shareRaw(weightBins_data), // returns raw pointer to data
+        {0, 0},                             // offset
+        extent);                            // extent, artificially inflated
 
     /// actual write happens
     series.flush();
