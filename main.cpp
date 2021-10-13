@@ -4,6 +4,9 @@
 #include <numeric>  // std::iota
 #include <vector>   // std::vector
 
+// print to console
+#include <iostream>
+
 /**@file test example for writing histogram woth openPMD-api from c++ code
   *
   */
@@ -21,7 +24,8 @@ int main(){
     constexpr int yExtent = 3;
     constexpr int maxNumBins = 5;
 
-    openPMD::Extent extent = {xExtent, yExtent * maxNumBins};
+    openPMD::Extent extentBins = {xExtent, yExtent * maxNumBins};
+    openPMD::Extent extentNumBins = {xExtent, yExtent};
 
     typedef float T_Value;
     typedef float T_Argument;
@@ -33,51 +37,74 @@ int main(){
                                                   maxNumBins);
     std::vector<T_Argument> widthBins_data(xExtent * yExtent * maxNumBins);
 
-    std::vector<int> numBins(xExtent * yExtent);
+    std::vector<int> numBins_data(xExtent * yExtent, 1.);
 
     // fill x_data with ascending index
     std::iota(weightBins_data.begin(), weightBins_data.end(), 1.);
     std::iota(widthBins_data.begin(), widthBins_data.end(), 1.);
     std::iota(leftBoundaryBins_data.begin(), leftBoundaryBins_data.end(), 1.);
 
-    // create a new record for mesh
-    auto histogramMesh = iteration.meshes["adaptiveHistogram"];
+    // create new meshes
+    auto histogramBinsMesh = iteration.meshes["adaptiveHistogramBins"];
+    auto histogramNumBinMesh = iteration.meshes["adaptiveHistogramNumBins"];
 
-    histogramMesh.setAttribute("maxNumBins", maxNumBins);
+    /// sotre maxNumBins
+    histogramBinsMesh.setAttribute("maxNumBins", maxNumBins);
 
-    // create 1 record component each corresponding to one single entry in histogram
-    auto entryLeftBoundary = histogramMesh["leftBoundaryBins"];
-    auto entryWidth = histogramMesh["widthBins"];
-    auto entryWeight = histogramMesh["weightBins"];
+    // create 1 record component for each entry in bin
+    auto entryLeftBoundary = histogramBinsMesh["leftBoundaryBins"];
+    auto entryWidth = histogramBinsMesh["widthBins"];
+    auto entryWeight = histogramBinsMesh["weightBins"];
+
+    // create one numBin per super cell
+    auto entryNumBins =
+        histogramNumBinMesh[openPMD::MeshRecordComponent::SCALAR];
 
     ///create new dataset, description of how data is to be stored
     openPMD::Datatype dataTypeValue =
         openPMD::determineDatatype(openPMD::shareRaw(weightBins_data));
     openPMD::Datatype dataTypeArgument =
         openPMD::determineDatatype(openPMD::shareRaw(widthBins_data));
+    openPMD::Datatype dataTypeNumber =
+        openPMD::determineDatatype(openPMD::shareRaw(numBins_data));
 
-    openPMD::Dataset dataSetValue = openPMD::Dataset(dataTypeValue, extent);
+    openPMD::Dataset dataSetValue = openPMD::Dataset(dataTypeValue, extentBins);
     openPMD::Dataset dataSetArgument =
-        openPMD::Dataset(dataTypeArgument, extent);
+        openPMD::Dataset(dataTypeArgument, extentBins);
+    openPMD::Dataset dataSetNumber =
+        openPMD::Dataset(dataTypeNumber, extentNumBins);
 
     /// set what records actually store(what record components actually are)
     entryWeight.resetDataset(dataSetArgument);
     entryWidth.resetDataset(dataSetArgument);
     entryLeftBoundary.resetDataset(dataSetValue);
+    entryNumBins.resetDataset(dataSetNumber);
 
     /// actual data is passed
     entryLeftBoundary.storeChunk(
         openPMD::shareRaw(leftBoundaryBins_data), // returns raw pointer to data
         {0, 0},                                   // offset
-        extent); // extent, artificially inflated
+        extentBins); // extent, artificially inflated
     entryWidth.storeChunk(
         openPMD::shareRaw(widthBins_data), // returns raw pointer to data
         {0, 0},                            // offset
-        extent);                           // extent, artificially inflated
+        extentBins);                       // extent, artificially inflated
     entryWeight.storeChunk(
         openPMD::shareRaw(weightBins_data), // returns raw pointer to data
         {0, 0},                             // offset
-        extent);                            // extent, artificially inflated
+        extentBins);                        // extent, artificially inflated
+    entryNumBins.storeChunk(
+        openPMD::shareRaw(numBins_data), // returns raw pointer to data
+        {0, 0},                          // offset
+        extentNumBins);                  // extent, actual
+
+    // NOTE: openPMD seems to use the last dimension index as the fastest
+    // changing index, probably due to their list of list implementation and
+    // filling, while piconpgu gridbuffers do use the first simulation dimension
+    // as the fastest changing index. I did not find documentation for both
+    // describing this behaviour, therefore it might change in the future.
+    // Acceptable I guess since only a plugin relies on it. should leave a note
+    // in the source code nevertheless
 
     /// actual write happens
     series.flush();
